@@ -7,33 +7,23 @@ from tensorflow.keras.models import load_model
 import os
 from tensorflow.keras.optimizers import Adam
 
-from model.utilsModel import (
+from model.UtilsModel import (
     focal_loss,
-    prepare_confusion_summary,
-setFusion
+    setFusion
 )
 
 
-# class_names = ['alert', 'disapproval','negative', 'neutral', 'positive']
-# class_names = ['anger', 'contempt', 'disgust', 'fear', 'happiness', 'neutral', 'sadness', 'surprise']
-#'../assets/' + datasetTestFolder
-def evaluateModel(datasetTestFolder, class_names, withFusion):
-    folder = ""
+def evaluateModel(datasetTestFolder, class_names):
     test_dir = datasetTestFolder
+    setFusion(test_dir)
+    test_dir = test_dir + "_fused"
 
-    if (withFusion):
-        folder = "withFusion"
-        setFusion(test_dir)
-    else:
-        folder = "withoutFusion"
     os.makedirs("results/plots", exist_ok=True)
-    os.makedirs("results/errors/"+folder, exist_ok=True)
-    os.makedirs("results/report/"+folder, exist_ok=True)
+    os.makedirs("results/errors", exist_ok=True)
+    os.makedirs("results/report", exist_ok=True)
 
     # === Impostazioni base ===
-    model = load_model("results/model/cnn_"+folder+"_model.h5", compile=False)
-
-
+    model = load_model("results/model/cnn_model.h5", compile=False)
 
     img_size = 48
     batch_size = 32
@@ -79,7 +69,7 @@ def evaluateModel(datasetTestFolder, class_names, withFusion):
     plt.xlabel("Classe predetta")
     plt.title('Confusion Matrix')
     plt.tight_layout()
-    plt.savefig('results/plots/confusion_matrix_'+folder+'.png', dpi=300)
+    plt.savefig('results/plots/confusion_matrix.png', dpi=300)
     plt.show()
 
     # === Classification Report ===
@@ -87,14 +77,15 @@ def evaluateModel(datasetTestFolder, class_names, withFusion):
     print("Classification Report:")
     print(report)
 
-    with open('results/report/classification_report_'+folder+'.txt', 'w', encoding='utf-8') as f:
+    with open('results/report/classification_report.txt', 'w', encoding='utf-8') as f:
         f.write(report)
 
-    analysisImagesConfused(true_labels, predicted_classes, class_names, test_generator,folder, img_size)
+    analysisImagesConfused(true_labels, predicted_classes, class_names, test_generator, img_size)
+
+
 
 # === Analisi classi confuse ===
-
-def analysisImagesConfused(true_labels, predicted_classes, class_names, test_generator, folder, img_size):
+def analysisImagesConfused(true_labels, predicted_classes, class_names, test_generator, img_size):
     errors = {}
     for true, pred in zip(true_labels, predicted_classes):
         if true != pred:
@@ -103,23 +94,14 @@ def analysisImagesConfused(true_labels, predicted_classes, class_names, test_gen
             key = f"{true_class} → {pred_class}"
             errors[key] = errors.get(key, 0) + 1
 
-    summary_df = prepare_confusion_summary(errors, class_names)
 
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(summary_df, annot=True, fmt='g', cmap='Reds')
-    plt.title("Top confusioni di classe")
-    plt.ylabel("Classe vera")
-    plt.xlabel("Classe predetta")
-    plt.tight_layout()
-    plt.savefig('results/plots/top_confused_classes_heatmap_'+folder+'.png', dpi=300)
-    plt.show()
     sorted_errors = sorted(errors.items(), key=lambda x: x[1], reverse=True)
 
     print("\n🔍 Classi più frequentemente confuse:")
     for err, count in sorted_errors[:10]:
         print(f"{err}: {count} volte")
 
-    with open('results/report/top_confused_classes_'+folder+'.txt', 'w', encoding='utf-8') as f:
+    with open('results/report/top_confused_classes.txt', 'w', encoding='utf-8') as f:
         for err, count in sorted_errors:
             f.write(f"{err}: {count} volte\n")
 
@@ -135,7 +117,7 @@ def analysisImagesConfused(true_labels, predicted_classes, class_names, test_gen
             pred_class = class_names[pred]
 
             # Crea una cartella per gli errori specifici
-            error_dir = os.path.join("results/errors/"+folder, f"{true_class}_pred_{pred_class}")
+            error_dir = os.path.join("results/errors", f"{true_class}_pred_{pred_class}")
             os.makedirs(error_dir, exist_ok=True)
 
             # Salva l'immagine sbagliata

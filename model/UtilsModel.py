@@ -1,4 +1,4 @@
-# utilsModel.py
+# UtilsModel.py
 
 import os
 import numpy as np
@@ -10,13 +10,14 @@ import pandas as pd
 
 
 def setFusion(datasetFolder):
+
     label_map = {
         'anger': 'negative',
         'sadness': 'negative',
-        'disgust': 'disapproval',
-        'contempt': 'disapproval',
-        'fear': 'alert',
-        'surprise': 'alert',
+        'disgust': 'negative',
+        'contempt': 'negative',
+        'fear': 'ambiguous',
+        'surprise': 'ambiguous',
         'happiness': 'positive',
         'neutral': 'neutral'
     }
@@ -58,13 +59,16 @@ def get_class_distribution(directory):
             for cls in os.listdir(directory)}
 
 # Mostra distribuzione con grafico
-def plot_distribution(dist, title):
+def plot_distribution(dist, title, save_path):
     plt.figure(figsize=(10, 5))
     plt.bar(dist.keys(), dist.values(), color='skyblue')
     plt.title(title)
     plt.ylabel("Numero di immagini")
     plt.xticks(rotation=45)
     plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
     plt.show()
 
 # 🔁 Augment e bilancia
@@ -111,15 +115,3 @@ def plot_metrics(history, save_path=None):
         plt.savefig(save_path, dpi=300)
     plt.show()
 
-def prepare_confusion_summary(errors_dict, class_names, top_n=10):
-    confusion_df = pd.DataFrame(0, index=class_names, columns=class_names)
-
-    for key, count in errors_dict.items():
-        true_label, pred_label = key.split(" → ")
-        confusion_df.loc[true_label, pred_label] = count
-
-    # Mostra solo le top N confusioni
-    flattened = confusion_df.stack().sort_values(ascending=False)
-    top_confusions = flattened[:top_n]
-
-    return top_confusions.unstack().fillna(0)

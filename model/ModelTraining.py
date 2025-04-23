@@ -8,7 +8,7 @@ from tensorflow.keras.models import Sequential
 from keras.regularizers import l2
 import pandas as pd
 
-from model.utilsModel import (
+from model.UtilsModel import (
     focal_loss,
     get_class_distribution,
     plot_distribution,
@@ -17,11 +17,8 @@ from model.utilsModel import (
     setFusion
 )
 
-
-
-def runTraining(train_folder, augmented_folder, numberClasses, withFusion):
+def runTraining(train_folder, augmented_folder, numberClasses):
     # Imposta il path del dataset originale e di destinazione
-    folder = ""
 
     os.makedirs("results/plots", exist_ok=True)
     os.makedirs("results/model", exist_ok=True)
@@ -48,22 +45,20 @@ def runTraining(train_folder, augmented_folder, numberClasses, withFusion):
         fill_mode='nearest',
         brightness_range=[0.8, 1.2]
     )
-    if (withFusion):
-        folder = "withFusion"
-        setFusion(train_dir)
-    else:
-        folder = "withoutFusion"
+    setFusion(train_dir)
+    train_dir = train_dir + "_fused"
 
     original_dist = get_class_distribution(train_dir)
-    plot_distribution(original_dist, "Distribuzione prima del bilanciamento")
+    plot_distribution(original_dist, "Distribuzione prima del bilanciamento", save_path='results/plots/plot_classes_pre_balancing.png')
 
     for cls in original_dist.keys():
+        print("Bilanciamento classe: "+cls+" ...")
         balance_class_with_augmentation(cls, target_images, train_dir, augmented_dir, datagen)
-
+        print("Directory dataset bilanciato: " + augmented_dir +"/"+cls)
 
     # Visualizza distribuzione dopo il bilanciamento
     new_dist = get_class_distribution(augmented_dir)
-    plot_distribution(new_dist, "Distribuzione dopo il bilanciamento")
+    plot_distribution(new_dist, "Distribuzione dopo il bilanciamento", save_path='results/plots/plot_classes_post_balancing.png')
 
     train_datagen = ImageDataGenerator(
         rescale=1./255,
@@ -90,6 +85,7 @@ def runTraining(train_folder, augmented_folder, numberClasses, withFusion):
 
     weight_decay = 1e-4
 
+    #Struttura CNN
     model = Sequential([
         Conv2D(32, (3, 3), activation='relu', padding='same', kernel_regularizer=l2(weight_decay), input_shape=(img_size, img_size, 1)),
         BatchNormalization(),
@@ -113,7 +109,6 @@ def runTraining(train_folder, augmented_folder, numberClasses, withFusion):
         Dense(numberClasses, activation='softmax')
     ])
 
-    # 🔧 Compile
     model.compile(optimizer=Adam(learning_rate=1e-4),
                   loss=focal_loss(gamma=2.0, alpha=0.25),
                   metrics=['accuracy'])
@@ -136,14 +131,15 @@ def runTraining(train_folder, augmented_folder, numberClasses, withFusion):
         callbacks=[reduce_lr,early_stop]
     )
 
+    print("Salvataggio: results/model/cnn_model.h5")
     # Salvataggio del modello
-    model.save("results/model/cnn_"+folder+"_model.h5")
+    model.save("results/model/cnn_model.h5")
 
 
-    plot_metrics(history, save_path='results/plots/accuracy_and_loss_'+folder+'.png')
+    plot_metrics(history, save_path='results/plots/accuracy_and_loss.png')
 
     df = pd.DataFrame(history.history)
-
     # Salva in CSV
-    df.to_csv("results/model/training_history_"+folder+".csv", index=False)
+    print("Salvataggio history modello: results/model/training_history.csv")
+    df.to_csv("results/model/training_history.csv", index=False)
 
