@@ -14,7 +14,6 @@ def setFusion(datasetFolder):
     label_map = {
         'anger': 'negative',
         'sadness': 'negative',
-        'disgust': 'negative',
         'contempt': 'negative',
         'fear': 'ambiguous',
         'surprise': 'ambiguous',
@@ -44,14 +43,16 @@ def setFusion(datasetFolder):
 
 # Focal loss
 def focal_loss(gamma=2.0, alpha=0.25):
-    def loss(y_true, y_pred):
+    def focal_loss_fixed(y_true, y_pred):
         epsilon = tf.keras.backend.epsilon()
+        y_true = tf.cast(y_true, tf.float32)
         y_pred = tf.clip_by_value(y_pred, epsilon, 1. - epsilon)
+
         cross_entropy = -y_true * tf.math.log(y_pred)
-        weight = alpha * tf.math.pow(1 - y_pred, gamma)
-        loss = weight * cross_entropy
-        return tf.reduce_mean(tf.reduce_sum(loss, axis=1))
-    return loss
+        loss = alpha * tf.pow(1 - y_pred, gamma) * cross_entropy
+        return tf.reduce_mean(loss, axis=-1)
+
+    return focal_loss_fixed
 
 # Calcola distribuzione per classe
 def get_class_distribution(directory):

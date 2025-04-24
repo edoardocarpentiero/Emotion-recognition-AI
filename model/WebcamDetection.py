@@ -3,15 +3,11 @@ import numpy as np
 from tensorflow.keras.models import load_model
 
 
-def webcam(withFusion, class_names):
-    folder = ""
-    if(withFusion):
-        folder = "withFusion"
-    else:
-        folder = "withoutFusion"
+def webcam(class_names):
+
 
     # Carica il modello salvato
-    model = load_model("results/model/cnn_"+folder+"_model.h5", compile=False)
+    model = load_model("results/model/cnn_model.h5", compile=False)
 
     # Nomi delle classi FER2013
 

@@ -1,7 +1,7 @@
 import os
 from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array, load_img
 from tensorflow.keras.layers import BatchNormalization, GlobalAveragePooling2D, Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.callbacks import EarlyStopping, Callback ,ReduceLROnPlateau
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array, load_img, array_to_img
 from tensorflow.keras.models import Sequential
@@ -16,6 +16,7 @@ from model.UtilsModel import (
     plot_metrics,
     setFusion
 )
+
 
 def runTraining(train_folder, augmented_folder, numberClasses):
     # Imposta il path del dataset originale e di destinazione
@@ -43,7 +44,8 @@ def runTraining(train_folder, augmented_folder, numberClasses):
         zoom_range=0.1,
         horizontal_flip=True,
         fill_mode='nearest',
-        brightness_range=[0.8, 1.2]
+        brightness_range=[0.8, 1.2],
+        shear_range=0.1
     )
     setFusion(train_dir)
     train_dir = train_dir + "_fused"
@@ -110,7 +112,7 @@ def runTraining(train_folder, augmented_folder, numberClasses):
     ])
 
     model.compile(optimizer=Adam(learning_rate=1e-4),
-                  loss=focal_loss(gamma=2.0, alpha=0.25),
+                  loss=focal_loss(),
                   metrics=['accuracy'])
 
     early_stop = EarlyStopping(
@@ -123,6 +125,8 @@ def runTraining(train_folder, augmented_folder, numberClasses):
                                   factor=0.1,           # Riduce il learning rate del 10%
                                   patience=1,           # Attende 3 epoche senza miglioramenti prima di ridurre
                                   min_lr=1e-5)
+
+
     # Addestramento
     history = model.fit(
         train_generator,
