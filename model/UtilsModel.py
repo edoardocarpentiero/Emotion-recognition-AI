@@ -1,28 +1,48 @@
 # UtilsModel.py
 
-import os
 import numpy as np
 import matplotlib.pyplot as plt
-import shutil
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 import tensorflow as tf
-import pandas as pd
+import random
+import os
+import shutil
+from PIL import Image
+label_map = {}
+
+def split_dataset(source_dir, output_base_dir, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
+    """
+    Divide le immagini da source_dir in train/val/test dentro output_base_dir.
+    """
+    assert train_ratio + val_ratio + test_ratio == 1.0, "Le proporzioni devono sommare a 1."
+
+    classes = os.listdir(source_dir)
+
+    for cls in classes:
+        cls_dir = os.path.join(source_dir, cls)
+        images = os.listdir(cls_dir)
+        random.shuffle(images)
+
+        train_split = int(train_ratio * len(images))
+        val_split = int((train_ratio + val_ratio) * len(images))
+
+        train_images = images[:train_split]
+        val_images = images[train_split:val_split]
+        test_images = images[val_split:]
+
+        for split_name, split_images in zip(["train", "val", "test"], [train_images, val_images, test_images]):
+            split_dir = os.path.join(output_base_dir, split_name, cls)
+            os.makedirs(split_dir, exist_ok=True)
+            for img in split_images:
+                src = os.path.join(cls_dir, img)
+                dst = os.path.join(split_dir, img)
+                shutil.copyfile(src, dst)
 
 
-def setFusion(datasetFolder):
-
-    label_map = {
-        'anger': 'negative',
-        'sadness': 'negative',
-        'contempt': 'negative',
-        'fear': 'ambiguous',
-        'surprise': 'ambiguous',
-        'happiness': 'positive',
-        'neutral': 'neutral'
-    }
-
+def setFusion(datasetFolder, labelMap):
+    label_map = labelMap
     src_root = datasetFolder
-    dst_root = datasetFolder+"_fused"
+    dst_root = datasetFolder + "_fused"
 
     os.makedirs(dst_root, exist_ok=True)
 
@@ -30,16 +50,26 @@ def setFusion(datasetFolder):
         old_path = os.path.join(src_root, old_label)
         if not os.path.isdir(old_path):
             continue
+
         new_label = label_map.get(old_label)
         if new_label is None:
             continue
+
         dst_path = os.path.join(dst_root, new_label)
         os.makedirs(dst_path, exist_ok=True)
 
         for fname in os.listdir(old_path):
             src_img = os.path.join(old_path, fname)
             dst_img = os.path.join(dst_path, fname)
-            shutil.copy2(src_img, dst_img)
+
+            try:
+                # Apri e ridimensiona l'immagine a 64x64
+                img = Image.open(src_img).convert("L")  # Grayscale
+                img = img.resize((64, 64))
+                img.save(dst_img)
+            except Exception as e:
+                print(f"Errore con {src_img}: {e}")
+
 
 # Focal loss
 def focal_loss(gamma=2.0, alpha=0.25):
@@ -60,12 +90,50 @@ def get_class_distribution(directory):
             for cls in os.listdir(directory)}
 
 # Mostra distribuzione con grafico
-def plot_distribution(dist, title, save_path):
+def plot_distribution(dist, title, save_path=None):
     plt.figure(figsize=(10, 5))
-    plt.bar(dist.keys(), dist.values(), color='skyblue')
+    bars = plt.bar(dist.keys(), dist.values(), color='skyblue')
     plt.title(title)
     plt.ylabel("Numero di immagini")
     plt.xticks(rotation=45)
+    plt.tight_layout()
+
+    # Aggiunta dei numeri sopra le barre
+    for bar in bars:
+        height = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width() / 2, height + 2, f'{int(height)}',
+                 ha='center', va='bottom', fontsize=10, fontweight='bold')
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+    plt.show()
+
+def plot_comparison_distribution(dist_before, dist_after, title, save_path=None):
+    labels = list(dist_before.keys())
+    x = np.arange(len(labels))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    bars1 = ax.bar(x - width/2, dist_before.values(), width, label='Prima del bilanciamento', color='#87CEEB', alpha=0.7)
+    bars2 = ax.bar(x + width/2, dist_after.values(), width, label='Dopo il bilanciamento', color='#408FBD', alpha=0.7)
+
+    # Etichette numeriche sopra le barre
+    for bar in bars1:
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2, height + 2, f'{int(height)}',
+                ha='center', va='bottom', fontsize=9)
+
+    for bar in bars2:
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2, height + 2, f'{int(height)}',
+                ha='center', va='bottom', fontsize=9)
+
+    ax.set_title(title)
+    ax.set_ylabel('Numero di immagini')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=45)
+    ax.legend()
     plt.tight_layout()
 
     if save_path:

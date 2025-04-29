@@ -1,12 +1,13 @@
 import os
-from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array, load_img
-from tensorflow.keras.layers import BatchNormalization, GlobalAveragePooling2D, Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-from tensorflow.keras.callbacks import EarlyStopping, Callback ,ReduceLROnPlateau
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array, load_img, array_to_img
-from tensorflow.keras.models import Sequential
-from keras.regularizers import l2
+import random
+import shutil
 import pandas as pd
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import BatchNormalization, GlobalAveragePooling2D, Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from tensorflow.keras.optimizers import Adam
+from keras.regularizers import l2
 
 from model.UtilsModel import (
     focal_loss,
@@ -14,26 +15,25 @@ from model.UtilsModel import (
     plot_distribution,
     balance_class_with_augmentation,
     plot_metrics,
-    setFusion
+    setFusion,
+    plot_comparison_distribution,
+    split_dataset
 )
 
 
-def runTraining(train_folder, augmented_folder, numberClasses):
-    # Imposta il path del dataset originale e di destinazione
 
+
+def runTraining(train_folder, augmented_folder, numberClasses, split_dir_balanced, label_map):
     os.makedirs("results/plots", exist_ok=True)
     os.makedirs("results/model", exist_ok=True)
 
+    img_size = 64
+    batch_size = 64
+    epochs = 50
+    target_images = 25000  # per tutte le classi
+
     train_dir = train_folder
     augmented_dir = augmented_folder
-
-    img_size = 48
-    batch_size = 32
-    epochs = 50
-
-    target_images = 25000  # per tutte le altre classi
-
-
     os.makedirs(augmented_dir, exist_ok=True)
 
     # Augmentation settings
@@ -47,47 +47,63 @@ def runTraining(train_folder, augmented_folder, numberClasses):
         brightness_range=[0.8, 1.2],
         shear_range=0.1
     )
-    setFusion(train_dir)
+
+    # Fusione iniziale delle directory se necessario
+    setFusion(train_dir,label_map)
     train_dir = train_dir + "_fused"
 
+    # Analizza distribuzione originale
     original_dist = get_class_distribution(train_dir)
     plot_distribution(original_dist, "Distribuzione prima del bilanciamento", save_path='results/plots/plot_classes_pre_balancing.png')
 
+    # Bilanciamento dataset
     for cls in original_dist.keys():
-        print("Bilanciamento classe: "+cls+" ...")
+        print(f"Bilanciamento classe: {cls} ...")
         balance_class_with_augmentation(cls, target_images, train_dir, augmented_dir, datagen)
-        print("Directory dataset bilanciato: " + augmented_dir +"/"+cls)
+        print(f"Directory dataset bilanciato: {augmented_dir}/{cls}")
 
-    # Visualizza distribuzione dopo il bilanciamento
+    # Nuova distribuzione
     new_dist = get_class_distribution(augmented_dir)
-    plot_distribution(new_dist, "Distribuzione dopo il bilanciamento", save_path='results/plots/plot_classes_post_balancing.png')
+    plot_comparison_distribution(original_dist, new_dist, "Distribuzione dopo il bilanciamento", save_path='results/plots/plot_classes_post_balancing.png')
 
-    train_datagen = ImageDataGenerator(
-        rescale=1./255,
-        validation_split=0.2
-    )
+    # Divisione in train/val/test
+    print("Suddivisione del dataset in train/val/test in "+split_dir_balanced)
+    split_dataset(augmented_dir, output_base_dir=split_dir_balanced, train_ratio=0.8, val_ratio=0.1, test_ratio=0.1)
+
+    # Data Generators
+    train_datagen = ImageDataGenerator(rescale=1./255)
+    val_test_datagen = ImageDataGenerator(rescale=1./255)
+
+    # Analizza distribuzione originale
+    original_dist = get_class_distribution(split_dir_balanced+'/train')
+    plot_distribution(original_dist, "Distribuzione dataset di Training",
+                      save_path='results/plots/plot_classes_training.png')
+
+    original_dist = get_class_distribution(split_dir_balanced+'/val')
+    plot_distribution(original_dist, "Distribuzione dataset di Validation",
+                      save_path='results/plots/plot_classes_validation.png')
 
     train_generator = train_datagen.flow_from_directory(
-        augmented_dir,
+        split_dir_balanced+'/train',
         target_size=(img_size, img_size),
         batch_size=batch_size,
         class_mode='categorical',
-        subset='training',
-        color_mode='grayscale',  # Carica come immagini in scala di grigio (1 canale)
+        color_mode='grayscale',
+        shuffle=True
     )
 
-    val_generator = train_datagen.flow_from_directory(
-        augmented_dir,
+    val_generator = val_test_datagen.flow_from_directory(
+        split_dir_balanced+'/val',
         target_size=(img_size, img_size),
         batch_size=batch_size,
         class_mode='categorical',
-        subset='validation',
-        color_mode='grayscale',  # Carica come immagini in scala di grigio (1 canale)
+        color_mode='grayscale',
+        shuffle=False
     )
 
+
+    # Modello CNN
     weight_decay = 1e-4
-
-    #Struttura CNN
     model = Sequential([
         Conv2D(32, (3, 3), activation='relu', padding='same', kernel_regularizer=l2(weight_decay), input_shape=(img_size, img_size, 1)),
         BatchNormalization(),
@@ -115,35 +131,26 @@ def runTraining(train_folder, augmented_folder, numberClasses):
                   loss=focal_loss(),
                   metrics=['accuracy'])
 
-    early_stop = EarlyStopping(
-        monitor='val_loss',
-        patience=2,
-        restore_best_weights=True
-    )
+    # Callbacks
+    early_stop = EarlyStopping(monitor='val_loss', patience=2, restore_best_weights=True)
+    reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=1, min_lr=1e-5)
 
-    reduce_lr = ReduceLROnPlateau(monitor='val_loss',   # Monitora la loss di validazione
-                                  factor=0.1,           # Riduce il learning rate del 10%
-                                  patience=1,           # Attende 3 epoche senza miglioramenti prima di ridurre
-                                  min_lr=1e-5)
-
-
-    # Addestramento
+    # Training
+    print("Inizio addestramento...")
     history = model.fit(
         train_generator,
         validation_data=val_generator,
         epochs=epochs,
-        callbacks=[reduce_lr,early_stop]
+        callbacks=[reduce_lr, early_stop]
     )
 
-    print("Salvataggio: results/model/cnn_model.h5")
-    # Salvataggio del modello
+    # Salvataggi
+    print("Salvataggio modello in results/model/cnn_model.h5")
     model.save("results/model/cnn_model.h5")
 
-
+    print("Plot metriche e salvataggio history...")
     plot_metrics(history, save_path='results/plots/accuracy_and_loss.png')
 
     df = pd.DataFrame(history.history)
-    # Salva in CSV
-    print("Salvataggio history modello: results/model/training_history.csv")
     df.to_csv("results/model/training_history.csv", index=False)
 

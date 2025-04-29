@@ -6,17 +6,18 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator, load_img, i
 from tensorflow.keras.models import load_model
 import os
 from tensorflow.keras.optimizers import Adam
+from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import RandomForestClassifier
 
 from model.UtilsModel import (
     focal_loss,
-    setFusion
+    get_class_distribution,
+    plot_distribution
 )
 
 
 def evaluateModel(datasetTestFolder, class_names):
-    test_dir = datasetTestFolder
-    setFusion(test_dir)
-    test_dir = test_dir + "_fused"
+    test_dir = datasetTestFolder+'/test'
 
     os.makedirs("results/plots", exist_ok=True)
     os.makedirs("results/errors", exist_ok=True)
@@ -25,11 +26,16 @@ def evaluateModel(datasetTestFolder, class_names):
     # === Impostazioni base ===
     model = load_model("results/model/cnn_model.h5", compile=False)
 
-    img_size = 48
-    batch_size = 32
+    img_size = 64
+    batch_size = 64
+
+    original_dist = get_class_distribution(test_dir)
+    plot_distribution(original_dist, "Distribuzione classi di Test",
+                      save_path='results/plots/plot_classes_test.png')
 
     # === Caricamento dati di test ===
     test_datagen = ImageDataGenerator(rescale=1. / 255)
+
     test_generator = test_datagen.flow_from_directory(
         test_dir,
         target_size=(img_size, img_size),

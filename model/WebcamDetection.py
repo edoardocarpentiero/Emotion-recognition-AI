@@ -37,7 +37,7 @@ def webcam(class_names):
 
             # Preprocessa l'immagine del volto
             face_region = gray_frame[y:y + h, x:x + w]  # Seleziona solo la regione del volto
-            resized_face = cv2.resize(face_region, (48, 48))  # Ridimensiona l'immagine
+            resized_face = cv2.resize(face_region, (64, 64))  # Ridimensiona l'immagine
             input_face = resized_face.astype('float32') / 255.0  # Normalizza
             input_face = np.expand_dims(input_face, axis=-1)  # Aggiungi il canale
             input_face = np.expand_dims(input_face, axis=0)  # Aggiungi batch dimension
