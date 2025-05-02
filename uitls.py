@@ -44,4 +44,4 @@ def cleanFolder(split_dir_balanced,train_dir_balanced):
     remove_directory_if_exists(split_dir_balanced)
     remove_directory_if_exists(train_dir_balanced)
     remove_directory_if_exists('assets/train_fused')
-    empty_directory('results/errors')
+    remove_directory_if_exists('results/errors')

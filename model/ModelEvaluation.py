@@ -6,8 +6,6 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator, load_img, i
 from tensorflow.keras.models import load_model
 import os
 from tensorflow.keras.optimizers import Adam
-from sklearn.model_selection import cross_val_score
-from sklearn.ensemble import RandomForestClassifier
 
 from model.UtilsModel import (
     focal_loss,

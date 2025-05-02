@@ -10,10 +10,8 @@ import shutil
 from PIL import Image
 label_map = {}
 
-def split_dataset(source_dir, output_base_dir, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
-    """
-    Divide le immagini da source_dir in train/val/test dentro output_base_dir.
-    """
+def split_dataset(source_dir, output_base_dir, train_ratio, val_ratio, test_ratio):
+
     assert train_ratio + val_ratio + test_ratio == 1.0, "Le proporzioni devono sommare a 1."
 
     classes = os.listdir(source_dir)
@@ -30,7 +28,8 @@ def split_dataset(source_dir, output_base_dir, train_ratio=0.7, val_ratio=0.15, 
         val_images = images[train_split:val_split]
         test_images = images[val_split:]
 
-        for split_name, split_images in zip(["train", "val", "test"], [train_images, val_images, test_images]):
+        for split_name, split_images in zip(["train", "val", "test"],
+                                            [train_images, val_images, test_images]):
             split_dir = os.path.join(output_base_dir, split_name, cls)
             os.makedirs(split_dir, exist_ok=True)
             for img in split_images:
@@ -98,7 +97,6 @@ def plot_distribution(dist, title, save_path=None):
     plt.xticks(rotation=45)
     plt.tight_layout()
 
-    # Aggiunta dei numeri sopra le barre
     for bar in bars:
         height = bar.get_height()
         plt.text(bar.get_x() + bar.get_width() / 2, height + 2, f'{int(height)}',

@@ -19,7 +19,7 @@ def menu():
     print("3. Esci")
 
 def opzione1():
-    classes = ['anger', 'contempt', 'disgust', 'fear', 'happiness', 'neutral', 'sadness', 'surprise']'
+    classes = ['anger', 'contempt', 'disgust', 'fear', 'happiness', 'neutral', 'sadness', 'surprise']
     cleanFolder(split_dir_balanced, train_dir_balanced)
     num_classes = len(classes)
     label_map = {
@@ -50,8 +50,7 @@ def opzione2():
         'happiness': 'positive',
         'neutral': 'neutral'
     }
-    model.ModelTraining.runTraining(train_dir, train_dir_balanced, num_classes,
-                                    split_dir_balanced, label_map)
+    model.ModelTraining.runTraining(train_dir, train_dir_balanced, num_classes,   split_dir_balanced, label_map)
     model.ModelEvaluation.evaluateModel(split_dir_balanced, classes)
     model.WebcamDetection.webcam(classes)
 
