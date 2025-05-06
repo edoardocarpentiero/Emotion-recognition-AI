@@ -72,7 +72,7 @@ def runTraining(train_folder, augmented_folder, numberClasses, split_dir_balance
 
     # Data Generators
     train_datagen = ImageDataGenerator(rescale=1./255)
-    val_test_datagen = ImageDataGenerator(rescale=1./255)
+    val_datagen = ImageDataGenerator(rescale=1./255)
 
     # Analizza distribuzione originale
     original_dist = get_class_distribution(split_dir_balanced+'/train')
@@ -92,7 +92,7 @@ def runTraining(train_folder, augmented_folder, numberClasses, split_dir_balance
         shuffle=True
     )
 
-    val_generator = val_test_datagen.flow_from_directory(
+    val_generator = val_datagen.flow_from_directory(
         split_dir_balanced+'/val',
         target_size=(img_size, img_size),
         batch_size=batch_size,
@@ -105,6 +105,7 @@ def runTraining(train_folder, augmented_folder, numberClasses, split_dir_balance
     # Modello CNN
     weight_decay = 1e-4
     model = Sequential([
+
         Conv2D(32, (3, 3), activation='relu', padding='same', kernel_regularizer=l2(weight_decay), input_shape=(img_size, img_size, 1)),
         BatchNormalization(),
         MaxPooling2D(pool_size=(2, 2)),

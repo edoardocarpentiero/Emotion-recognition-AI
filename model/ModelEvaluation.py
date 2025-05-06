@@ -45,7 +45,7 @@ def evaluateModel(datasetTestFolder, class_names):
 
     model.compile(
         optimizer=Adam(learning_rate=1e-4),
-        loss=focal_loss(gamma=2.0, alpha=0.25),
+        loss=focal_loss(),
         metrics=['accuracy']
     )
 
